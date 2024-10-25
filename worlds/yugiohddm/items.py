@@ -11,6 +11,9 @@ for duelist in all_duelists:
     item_id_to_item_name[Constants.DUELIST_UNLOCK_OFFSET + duelist.id] = duelist.name
 # Dice items as their Dice ID + Dice offset (eventually)
 
+# Name the victory item
+item_id_to_item_name[Constants.VICTORY_ITEM_ID] = Constants.VICTORY_ITEM_NAME
+
 item_name_to_item_id: typing.Dict[str, int] = {value: key for key, value in item_id_to_item_name.items()}
 
 
