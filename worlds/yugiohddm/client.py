@@ -8,8 +8,9 @@ import worlds._bizhawk as bizhawk
 from worlds._bizhawk.client import BizHawkClient
 from .utils import Constants
 from .items import is_dice_item, convert_item_id_to_dice_id
-from .locations import get_location_id_for_duelist, duelist_from_location_id, is_duelist_location_id
+from .locations import get_location_id_for_duelist, duelist_from_location_id, is_duelist_location_id, get_location_id_for_duelist_rematch, duelist_rematch_from_location_id, is_duelist_rematch_location_id
 from .duelists import Duelist, all_duelists, name_to_duelist
+#from .options import YGODDMOptions, DuelistRematches
 from .version import __version__
 
 if TYPE_CHECKING:
@@ -28,6 +29,7 @@ class YGODDMClient(BizHawkClient):
     local_checked_locations: typing.Set[int]
     checked_version_string: bool
     random: Random
+    #options: YGODDMOptions
 
     def __init__(self) -> None:
         super().__init__()
@@ -95,7 +97,7 @@ class YGODDMClient(BizHawkClient):
                 d: get_wins_from_bytes(w) for d, w in zip(all_duelists, wins_bytes)
             }
             new_local_check_locations: typing.Set[int] = set([
-                get_location_id_for_duelist(key) for key, value in duelists_to_wins.items() if value != 0
+                get_location_id_for_duelist(key) for key, value in duelists_to_wins.items() if value > 0
             ])
 
             # Unlock Duelists
@@ -123,7 +125,7 @@ class YGODDMClient(BizHawkClient):
                         duelist_bitflag_index = duelist_bitflag_index + 1
                     unlocked_duelist_bitflags[duelist_bitflag_index] |= duelist_bitflag
             
-            # Check for Yami Yugi unlock based on number of duelists defeated
+            # Check for Yami Yugi unlock based on number of duelists defeated for the first time
             # (Looking for 91 duelists being defeated at least once before yami unlock)
             if len(new_local_check_locations) >= 91:
                 unlocked_duelist_bitflags[0] |= Duelist.YAMI_YUGI.bitflag
@@ -162,11 +164,15 @@ class YGODDMClient(BizHawkClient):
                         COMBINED_WRAM
                     )])
 
-
+            #if (self.options.duelist_rematches.value == DuelistRematches.option_one_rematch):
+            more_local_check_locations: typing.Set[int] = set([
+                get_location_id_for_duelist_rematch(key) for key, value in duelists_to_wins.items() if value > 1
+            ])
+            new_local_check_locations = new_local_check_locations.union(more_local_check_locations)
+            
             if new_local_check_locations != self.local_checked_locations:
                 self.local_checked_locations = new_local_check_locations
                 if new_local_check_locations is not None:
-                    print ("send check!")
                     await ctx.send_msgs([{
                         "cmd": "LocationChecks",
                         "locations": list(new_local_check_locations)

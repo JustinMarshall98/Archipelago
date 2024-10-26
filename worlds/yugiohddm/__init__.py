@@ -10,9 +10,9 @@ from worlds.generic.Rules import set_rule
 from .client import YGODDMClient
 from .utils import Constants
 from .items import YGODDMItem, item_name_to_item_id, create_item as fabricate_item, create_victory_event
-from .locations import YGODDMLocation, DuelistLocation, location_name_to_id as location_map
+from .locations import YGODDMLocation, DuelistLocation, DuelistFirstRematchLocation, location_name_to_id as location_map
 from .dice import Dice, all_dice
-from .options import YGODDMOptions#, DuelistRematches
+from .options import YGODDMOptions, DuelistRematches
 from .duelists import Duelist, all_duelists, map_duelists_to_ids
 from .version import __version__
 
@@ -72,6 +72,15 @@ class YGODDMWorld(World):
                 set_rule(duelist_location, (lambda state, d=duelist_location:
                                             d.duelist in self.get_available_duelists(state)))
                 free_duel_region.locations.append(duelist_location)
+
+        # If enabled, add Duelist rematch 1 locations
+        if (self.options.duelist_rematches.value == DuelistRematches.option_one_rematch):
+            for duelist in self.duelist_unlock_order:
+                if duelist is not Duelist.YAMI_YUGI:
+                    duelist_rematch_location: DuelistFirstRematchLocation = DuelistFirstRematchLocation(free_duel_region, self.player, duelist)
+                    set_rule(duelist_rematch_location, (lambda state, d=duelist_rematch_location:
+                                                d.duelist in self.get_available_duelists(state)))
+                    free_duel_region.locations.append(duelist_rematch_location)
             
         
         self.multiworld.completion_condition[self.player] = lambda state: state.has(
