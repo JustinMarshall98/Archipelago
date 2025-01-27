@@ -30,7 +30,7 @@ def create_victory_event(player_id: int) -> YGODDMItem:
     return YGODDMItem(Constants.VICTORY_ITEM_NAME, ItemClassification.progression, Constants.VICTORY_ITEM_ID, player_id)
 
 def is_dice_item(item_id: int) -> bool:
-    return item_id >= Constants.DICE_COLLECTION_OFFSET and item_id <= Constants.DICE_COLLECTION_OFFSET + 124
+    return item_id >= Constants.DICE_COLLECTION_OFFSET and item_id <= Constants.DICE_COLLECTION_OFFSET + 200
 
 def convert_item_id_to_dice_id(item_id: int) -> int:
     return item_id - Constants.DICE_COLLECTION_OFFSET

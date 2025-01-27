@@ -61,7 +61,7 @@ class YGODDMClient(BizHawkClient):
 
     async def read_dice_collection(self, ctx: "BizHawkClientContext") -> bytes:
         return (await bizhawk.read(
-            ctx.bizhawk_ctx, [(Constants.DICE_COLLECTION_OFFSET, 124, COMBINED_WRAM)]
+            ctx.bizhawk_ctx, [(Constants.DICE_COLLECTION_OFFSET, 200, COMBINED_WRAM)]
         ))[0]
     
     async def read_duelist_collection(self, ctx: "BizHawkClientContext") -> typing.List[int]:
@@ -136,27 +136,41 @@ class YGODDMClient(BizHawkClient):
                 COMBINED_WRAM
             )])
 
+            # Dice Debugging
+            from CommonClient import logger
+
             # Give out received Dice
             last_dice_received_count: int = int.from_bytes(
                 (await bizhawk.read(ctx.bizhawk_ctx, [(Constants.RECEIVED_DICE_COUNT_OFFSET, 1, COMBINED_WRAM)]))[0]
             )
+            #logger.debug(last_dice_received_count)
             received_items: typing.List[int] = [
                 item.item for item in ctx.items_received
             ]
+            #logger.debug(received_items)
             received_dice_ids: typing.List[int] = [id for id in received_items if is_dice_item(id)]
+            #logger.debug(received_dice_ids)
 
             if (len(received_dice_ids) > last_dice_received_count):
                 new_received_dice_ids: typing.List[int] = received_dice_ids[last_dice_received_count:]
+                #logger.debug(new_received_dice_ids)
                 new_dice_ids: typing.List[int] = [convert_item_id_to_dice_id(i) for i in new_received_dice_ids]
+                #logger.debug(new_dice_ids)
                 # Check if valid Dice id?
 
                 dice_collection_memory: bytes = await self.read_dice_collection(ctx)
+                #logger.debug(dice_collection_memory)
                 for dice_id, count in Counter(new_dice_ids).items():
+                    #logger.debug(dice_collection_memory[dice_id - 1] + count)
+                    #logger.debug(Constants.DICE_COLLECTION_OFFSET + dice_id - 1)
                     await bizhawk.write(ctx.bizhawk_ctx, [(
-                        Constants.DICE_COLLECTION_OFFSET + dice_id - 1,
+                        Constants.DICE_COLLECTION_OFFSET + dice_id,
                         (dice_collection_memory[dice_id - 1] + count).to_bytes(1, "little"),
                         COMBINED_WRAM
                     )])
+
+                dice_collection_memory: bytes = await self.read_dice_collection(ctx)
+                #logger.debug(dice_collection_memory)
 
                 await bizhawk.write(ctx.bizhawk_ctx, [(
                         Constants.RECEIVED_DICE_COUNT_OFFSET,
