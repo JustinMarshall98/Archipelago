@@ -11,7 +11,9 @@ class Constants:
     DUEL_WINS_OFFSET: int = 0x03E30A # Data is 2 Byte size, technically a copy of Victory Item ID
     DUELIST_UNLOCK_OFFSET: int = 0x03E64E # Data is 1 Byte size
     DICE_COLLECTION_OFFSET: int = 0x03E565 # Data is 1 Byte size
+    ACTIVE_DICE_OFFSET: int = 0x03E555 # Data is 1 Byte size
     RECEIVED_DICE_COUNT_OFFSET: int = 0x03E3C4 # Data is 1 Byte size
+    DICEPOOL_RANDOMIZED_OFFSET: int = 0x03E3C5 # Data is 1 Byte size
 
     GENERATED_WITH_KEY: str = "k"
     DUELIST_UNLOCK_ORDER_KEY: str = "d"

@@ -36,10 +36,21 @@ class DuelistRematches(Choice):
 #    range_end = 45
 #    default = 1
 
+class RandomizeStartingDice(Toggle):
+    """
+    In the base game your starting pool is lightly randomized to begin with,
+    but this setting takes off the guardrails and generates you with any
+    15 dice from the game (no duplicates).
+
+    It is impossible to generate a starting pool with only items and no creatures to summon.
+    """
+    display_name = "RandomizeStartingDice"
+
 @dataclass
 class YGODDMOptions(PerGameCommonOptions):
     duelist_rematches: DuelistRematches
     #starting_duelists: StartingDuelists
+    randomize_starting_dice: RandomizeStartingDice
 
     def serialize(self) -> typing.Dict[str, int]:
         return {field.name: getattr(self, field.name).value for field in dataclasses.fields(self)}
