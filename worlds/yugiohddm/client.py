@@ -89,13 +89,23 @@ class YGODDMClient(BizHawkClient):
             rando_dice_ids: typing.Set[int] = set()
             while (len(rando_dice_ids) < 15):
                 new_dice_id = random.randint(0, 200)
-                while ((new_dice_id in rando_dice_ids) or (new_dice_id in id_to_dice)):
+                while ((new_dice_id in rando_dice_ids) or (new_dice_id not in id_to_dice)):
                     new_dice_id = (new_dice_id + 1) % 201
                 rando_dice_ids.add(new_dice_id)
+            # Put the Randomized dice into the players collection
+            number_of_dice = 1
             for count, dice_id in enumerate(rando_dice_ids):
                 await bizhawk.write(ctx.bizhawk_ctx, [(
+                    Constants.DICE_COLLECTION_OFFSET + dice_id,
+                    number_of_dice.to_bytes(1, "little"),
+                    COMBINED_WRAM
+                )])
+            # We have to obliterate the players real starting dice pool
+            removed_dice_id = 0
+            for count in range(15):
+                await bizhawk.write(ctx.bizhawk_ctx, [(
                     Constants.ACTIVE_DICE_OFFSET + count,
-                    dice_id.to_bytes(1, "little"),
+                    removed_dice_id.to_bytes(1, "little"),
                     COMBINED_WRAM
                 )])
             # Write to byte in memory to prevent this from happening again
