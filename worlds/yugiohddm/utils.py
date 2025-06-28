@@ -15,6 +15,13 @@ class Constants:
     RECEIVED_DICE_COUNT_OFFSET: int = 0x03E3C4 # Data is 1 Byte size
     DICEPOOL_RANDOMIZED_OFFSET: int = 0x03E3C5 # Data is 1 Byte size
 
+    DIVISION_1_COMPLETION_OFFSET: int = 0x03E65E # Data is 1 Byte size
+    DIVISION_2_COMPLETION_OFFSET: int = 0x03E65F # Data is 1 Byte size
+    DIVISION_3_COMPLETION_OFFSET: int = 0x03E660 # Data is 1 Byte size
+    DIVISION_COMPLETION_BITFLAG: int = 1 << 0 # 1
+
+    SHOP_PROGRESSION_ITEM_NAME: str = "Shop Progression"
+
     GENERATED_WITH_KEY: str = "k"
     DUELIST_UNLOCK_ORDER_KEY: str = "d"
     GAME_OPTIONS_KEY: str = "g"

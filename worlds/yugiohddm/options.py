@@ -43,14 +43,31 @@ class RandomizeStartingDice(Toggle):
     15 dice from the game (no duplicates).
 
     It is impossible to generate a starting pool with only items and no creatures to summon.
+
+    With this option active you have to select all of your new dice from your collection
+    before the first duel begins.
     """
-    display_name = "RandomizeStartingDice"
+    display_name = "Randomize Starting Dice"
+
+class ShopProgressInPool(Toggle):
+    """
+    Adds 91 checks to the multiworld, 18 shop progression levels and
+    73 money rewards of varying sizes. These checks locations are
+    added as additional rewards for beating a duelist in Free Duel
+    for the first time.
+
+    Normally playing Free Duel doesn't award either of these things,
+    so turning this option on makes Grandpa's Shop functional
+    during your playthrough.
+    """
+    display_name = "Money and Shop Progress in Pool"
 
 @dataclass
 class YGODDMOptions(PerGameCommonOptions):
     duelist_rematches: DuelistRematches
     #starting_duelists: StartingDuelists
     randomize_starting_dice: RandomizeStartingDice
+    shop_progress_in_pool: ShopProgressInPool
 
     def serialize(self) -> typing.Dict[str, int]:
         return {field.name: getattr(self, field.name).value for field in dataclasses.fields(self)}

@@ -18,6 +18,10 @@ item_id_to_item_name[Constants.VICTORY_ITEM_ID] = Constants.VICTORY_ITEM_NAME
 
 item_name_to_item_id: typing.Dict[str, int] = {value: key for key, value in item_id_to_item_name.items()}
 
+# Money
+money_values: typing.Tuple[int, int, int, int, int] = (200, 1000, 2500, 10000, 25000)
+money_distribution_weight: typing.Tuple[float, float, float, float, float] = (0.10, 0.25, 0.50, 0.10, 0.05)
+
 
 class YGODDMItem(Item):
     game: str = Constants.GAME_NAME

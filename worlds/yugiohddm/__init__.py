@@ -81,6 +81,9 @@ class YGODDMWorld(World):
                     set_rule(duelist_rematch_location, (lambda state, d=duelist_rematch_location:
                                                 d.duelist in self.get_available_duelists(state)))
                     free_duel_region.locations.append(duelist_rematch_location)
+
+        # if enabled, add money and shop progression locations
+        #if (self.options.shop_progress_in_pool):
             
         
         self.multiworld.completion_condition[self.player] = lambda state: state.has(

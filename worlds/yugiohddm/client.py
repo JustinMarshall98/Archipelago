@@ -216,12 +216,14 @@ class YGODDMClient(BizHawkClient):
                         COMBINED_WRAM
                     )])
 
-            # Local checked checks handling
+            # Grab rematch checks
 
-            #if (self.options.duelist_rematches.value == DuelistRematches.option_one_rematch):
             more_local_check_locations: typing.Set[int] = set([
                 get_location_id_for_duelist_rematch(key) for key, value in duelists_to_wins.items() if value > 1
             ])
+
+            # Local checked checks handling
+
             new_local_check_locations = new_local_check_locations.union(more_local_check_locations)
             
             if new_local_check_locations != self.local_checked_locations:
