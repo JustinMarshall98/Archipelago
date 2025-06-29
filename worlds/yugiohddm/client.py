@@ -11,7 +11,6 @@ from .items import is_dice_item, convert_item_id_to_dice_id, item_id_to_item_nam
 from .locations import get_location_id_for_duelist, duelist_from_location_id, is_duelist_location_id, get_location_id_for_duelist_rematch, duelist_rematch_from_location_id, is_duelist_rematch_location_id, get_location_id_for_tournament
 from .duelists import Duelist, all_duelists, name_to_duelist
 from .dice import id_to_dice
-from .options import YGODDMOptions, RandomizeStartingDice, Progression
 from .tournament import Tournament, all_tournaments
 from .version import __version__
 
@@ -124,110 +123,124 @@ class YGODDMClient(BizHawkClient):
 
 
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
-        if not ctx.finished_game and any((item.item == Constants.VICTORY_ITEM_ID or item.item == Constants.VICTORY_ITEM_TOURNAMENT_ID) for item in ctx.items_received):
-            await ctx.send_msgs([{
-                "cmd": "StatusUpdate",
-                "status": ClientStatus.CLIENT_GOAL
-            }])
-            ctx.finished_game = True
-
         if ctx.slot_data is not None:
+
+            # Free Duel Progression goal check
+            if not ctx.finished_game and ctx.slot_data[Constants.GAME_OPTIONS_KEY]['progression'] == 0 and any((item.item == Constants.VICTORY_ITEM_ID) for item in ctx.items_received):
+                await ctx.send_msgs([{
+                    "cmd": "StatusUpdate",
+                    "status": ClientStatus.CLIENT_GOAL
+                }])
+                ctx.finished_game = True
+
+            # Tournament Progression goal check
+            if not ctx.finished_game and ctx.slot_data[Constants.GAME_OPTIONS_KEY]['progression'] == 1 and any((item.item == Constants.VICTORY_ITEM_TOURNAMENT_ID) for item in ctx.items_received):
+                await ctx.send_msgs([{
+                    "cmd": "StatusUpdate",
+                    "status": ClientStatus.CLIENT_GOAL
+                }])
+                ctx.finished_game = True
+
             # in YGO FM this is a version mismatch check between user vs generated world
 
             # Debugging
             from CommonClient import logger
 
             # Perform client-side starting dice pool randomization
-            if (RandomizeStartingDice):
+            if (ctx.slot_data[Constants.GAME_OPTIONS_KEY]['randomize_starting_dice']):
                 await self.randomize_starting_dice(ctx)
 
-            # Read number of wins over each duelist for 'duelist defeated' locations
-
-            read_list: typing.List[typing.Tuple[int, int, str]] = [
-                (d.wins_address, 2, COMBINED_WRAM) for d in all_duelists
-            ]
-            wins_bytes: typing.List[bytes] = await bizhawk.read(ctx.bizhawk_ctx, read_list)
-            duelists_to_wins: typing.Dict[Duelist, int] = {
-                d: get_wins_from_bytes(w) for d, w in zip(all_duelists, wins_bytes)
-            }
-            new_local_check_locations: typing.Set[int] = set([
-                get_location_id_for_duelist(key) for key, value in duelists_to_wins.items() if value > 0
-            ])
-
-            # Unlock Duelists
-
-            unlocked_duelist_bitflags: typing.List[int] = await self.read_duelist_collection(ctx)
-            duelist_bitflag: int = 0
-            duelist_bitflag_index: int
-            duelist_count: int = 0
-
-            # Unlock initially unlocked duelists
-
-            # Only handles Yugi Moto for now
-            unlocked_duelist_bitflags[0] |= Duelist.YUGI_MOTO.bitflag
+            new_local_check_locations: typing.Set[int]
 
 
-            # Unlock duelists based on who has been received
-            
-            for item in ctx.items_received:
-                if is_duelist_location_id(item.item):
-                    duelist_count = duelist_count + 1
-                    duelist_bitflag = duelist_from_location_id(item.item).bitflag
-                    duelist_bitflag_index = 0
-                    while duelist_bitflag >= 256:
-                        duelist_bitflag = duelist_bitflag >> 8
-                        duelist_bitflag_index = duelist_bitflag_index + 1
-                    unlocked_duelist_bitflags[duelist_bitflag_index] |= duelist_bitflag
-            
-            # Check for Yami Yugi unlock based on number of duelists defeated for the first time
-            # (Looking for 91 duelists being defeated at least once before yami unlock)
-            if len(new_local_check_locations) >= 91:
-                unlocked_duelist_bitflags[0] |= Duelist.YAMI_YUGI.bitflag
+            # Free Duel Progression in slot data
+            if (ctx.slot_data[Constants.GAME_OPTIONS_KEY]['progression'] == 0):
+                # Read number of wins over each duelist for 'duelist defeated' locations
 
-            await bizhawk.write(ctx.bizhawk_ctx, [(
-                Constants.DUELIST_UNLOCK_OFFSET,
-                unlocked_duelist_bitflags,
-                COMBINED_WRAM
-            )])
-            # Progression is Tournament
+                read_list: typing.List[typing.Tuple[int, int, str]] = [
+                    (d.wins_address, 2, COMBINED_WRAM) for d in all_duelists
+                ]
+                wins_bytes: typing.List[bytes] = await bizhawk.read(ctx.bizhawk_ctx, read_list)
+                duelists_to_wins: typing.Dict[Duelist, int] = {
+                    d: get_wins_from_bytes(w) for d, w in zip(all_duelists, wins_bytes)
+                }
+                new_local_check_locations = set([
+                    get_location_id_for_duelist(key) for key, value in duelists_to_wins.items() if value > 0
+                ])
 
-            # Read tournament wins
+                # Unlock Duelists
 
-            read_list: typing.List[typing.Tuple[int, int, str]] = [
-                (Constants.DIVISION_1_COMPLETION_OFFSET, 1, COMBINED_WRAM),
-                (Constants.DIVISION_2_COMPLETION_OFFSET, 1, COMBINED_WRAM),
-                (Constants.DIVISION_3_COMPLETION_OFFSET, 1, COMBINED_WRAM)
-            ]
-            tournament_wins_bytes: typing.List[bytes] = await bizhawk.read(ctx.bizhawk_ctx, read_list)
-            tournaments_to_wins: typing.Dict[Tournament, bool] = get_tournament_wins_from_bytes(tournament_wins_bytes)
+                unlocked_duelist_bitflags: typing.List[int] = await self.read_duelist_collection(ctx)
+                duelist_bitflag: int = 0
+                duelist_bitflag_index: int
+                duelist_count: int = 0
 
-            tournament_local_check_locations = set([
-                get_location_id_for_tournament(key) for key, value in tournaments_to_wins.items() if value
-            ])
+                # Unlock initially unlocked duelists
 
-            new_local_check_locations = new_local_check_locations.union(tournament_local_check_locations)
+                # Only handles Yugi Moto for now
+                unlocked_duelist_bitflags[0] |= Duelist.YUGI_MOTO.bitflag
 
-            # Unlock/Lock Tournament Divisions
 
-            division_2_lock: typing.List[int] = [int.from_bytes(tournament_wins_bytes[0], "little") & 0xFE]
-            division_3_lock: typing.List[int] = [int.from_bytes(tournament_wins_bytes[1], "little") & 0xFE]
+                # Unlock duelists based on who has been received
+                
+                for item in ctx.items_received:
+                    if is_duelist_location_id(item.item):
+                        duelist_count = duelist_count + 1
+                        duelist_bitflag = duelist_from_location_id(item.item).bitflag
+                        duelist_bitflag_index = 0
+                        while duelist_bitflag >= 256:
+                            duelist_bitflag = duelist_bitflag >> 8
+                            duelist_bitflag_index = duelist_bitflag_index + 1
+                        unlocked_duelist_bitflags[duelist_bitflag_index] |= duelist_bitflag
+                
+                # Check for Yami Yugi unlock based on number of duelists defeated for the first time
+                # (Looking for 91 duelists being defeated at least once before yami unlock)
+                if len(new_local_check_locations) >= 91:
+                    unlocked_duelist_bitflags[0] |= Duelist.YAMI_YUGI.bitflag
 
-            for item in ctx.items_received:
-                if item_id_to_item_name[item.item] == Constants.DIVISION_2_ITEM_NAME:
-                    division_2_lock[0] = division_2_lock[0] | 0x01
-                elif item_id_to_item_name[item.item] == Constants.DIVISION_3_ITEM_NAME:
-                    division_3_lock[0] = division_3_lock[0] | 0x01
+                await bizhawk.write(ctx.bizhawk_ctx, [(
+                    Constants.DUELIST_UNLOCK_OFFSET,
+                    unlocked_duelist_bitflags,
+                    COMBINED_WRAM
+                )])
+            else:
+                # Progression is Tournament
 
-            await bizhawk.write(ctx.bizhawk_ctx, [(
-                Constants.DIVISION_1_COMPLETION_OFFSET,
-                division_2_lock,
-                COMBINED_WRAM
-            ),
-            (
-                Constants.DIVISION_2_COMPLETION_OFFSET,
-                division_3_lock,
-                COMBINED_WRAM
-            )])
+                # Read tournament wins
+
+                read_list: typing.List[typing.Tuple[int, int, str]] = [
+                    (Constants.DIVISION_1_COMPLETION_OFFSET, 1, COMBINED_WRAM),
+                    (Constants.DIVISION_2_COMPLETION_OFFSET, 1, COMBINED_WRAM),
+                    (Constants.DIVISION_3_COMPLETION_OFFSET, 1, COMBINED_WRAM)
+                ]
+                tournament_wins_bytes: typing.List[bytes] = await bizhawk.read(ctx.bizhawk_ctx, read_list)
+                tournaments_to_wins: typing.Dict[Tournament, bool] = get_tournament_wins_from_bytes(tournament_wins_bytes)
+
+                new_local_check_locations = set([
+                    get_location_id_for_tournament(key) for key, value in tournaments_to_wins.items() if value
+                ])
+
+                # Unlock/Lock Tournament Divisions
+
+                division_2_lock: typing.List[int] = [int.from_bytes(tournament_wins_bytes[0], "little") & 0xFE]
+                division_3_lock: typing.List[int] = [int.from_bytes(tournament_wins_bytes[1], "little") & 0xFE]
+
+                for item in ctx.items_received:
+                    if item_id_to_item_name[item.item] == Constants.DIVISION_2_ITEM_NAME:
+                        division_2_lock[0] = division_2_lock[0] | 0x01
+                    elif item_id_to_item_name[item.item] == Constants.DIVISION_3_ITEM_NAME:
+                        division_3_lock[0] = division_3_lock[0] | 0x01
+
+                await bizhawk.write(ctx.bizhawk_ctx, [(
+                    Constants.DIVISION_1_COMPLETION_OFFSET,
+                    division_2_lock,
+                    COMBINED_WRAM
+                ),
+                (
+                    Constants.DIVISION_2_COMPLETION_OFFSET,
+                    division_3_lock,
+                    COMBINED_WRAM
+                )])
 
             # Give out received Dice
             last_dice_received_count: int = int.from_bytes(
@@ -259,15 +272,15 @@ class YGODDMClient(BizHawkClient):
                         COMBINED_WRAM
                     )])
 
-            # Grab rematch checks
-            more_local_check_locations: typing.Set[int] = set([
-                get_location_id_for_duelist_rematch(key) for key, value in duelists_to_wins.items() if value > 1
-            ])
+            if (ctx.slot_data[Constants.GAME_OPTIONS_KEY]['progression'] == 0 and ctx.slot_data[Constants.GAME_OPTIONS_KEY]['duelist_rematches'] == 1):
+                # Grab rematch checks
+                more_local_check_locations: typing.Set[int] = set([
+                    get_location_id_for_duelist_rematch(key) for key, value in duelists_to_wins.items() if value > 1
+                ])
 
-            # Local checked checks handling
-
-            new_local_check_locations = new_local_check_locations.union(more_local_check_locations)
+                new_local_check_locations = new_local_check_locations.union(more_local_check_locations)
                 
+            # Local checked checks handling
             if new_local_check_locations != self.local_checked_locations:
                 self.local_checked_locations = new_local_check_locations
                 if new_local_check_locations is not None:
