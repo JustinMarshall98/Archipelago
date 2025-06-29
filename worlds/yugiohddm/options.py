@@ -4,8 +4,27 @@ import dataclasses
 from Options import Range, Choice, PerGameCommonOptions, Toggle
 from dataclasses import dataclass
 
+class Progression(Choice):
+    """
+    Free Duel mode means all progression will be made through the Free Duel menu
+    culminating in a fight against Yami Yugi.
+    Your game will be longer per duelist you set to play against.
+    Grandpa's Shop will never advance in this mode unless you use the
+    Shop Progress Bonus Item Mode option.
+
+    Tournament mode means all progression will be made in Tournaments with the
+    goal being completing The Last Judgement in the Dark Tournament Division.
+    24 - 72 duel wins required, depending on checks you receive.
+    """
+    display_name = "Goal"
+    option_free_duel = 0
+    option_tournaments = 1
+    default = 1
+
 class DuelistRematches(Choice):
     """
+    This option only matters when your Progression mode is Free Duel.
+
     No matter what choice is made here, Yami Yugi will be unlocked after defeating every duelist
     at least once.
 
@@ -23,10 +42,12 @@ class DuelistRematches(Choice):
     option_no_rematches = 0
     option_one_rematch = 1
     #option_two_rematches = 2
-    default = 1
+    default = 0
 
 #class StartingDuelists(Range):
 #    """
+#    This option only matters when your Progression mode is Free Duel.
+#     
 #    The number of Duelists to start with unlocked.
 #    There are 92 duelists in total, Yami Yugi is reserved for the game's goal and there must be
 #    at least as many duelists to unlock as you start with, so the max you can start with is 45.
@@ -49,25 +70,60 @@ class RandomizeStartingDice(Toggle):
     """
     display_name = "Randomize Starting Dice"
 
-class ShopProgressInPool(Toggle):
+class BonusItemMode(Choice):
     """
-    Adds 91 checks to the multiworld, 18 shop progression levels and
-    73 money rewards of varying sizes. These checks locations are
-    added as additional rewards for beating a duelist in Free Duel
-    for the first time.
+    Decide what you would like to receive from filler checks.
 
-    Normally playing Free Duel doesn't award either of these things,
-    so turning this option on makes Grandpa's Shop functional
-    during your playthrough.
+    Random Dice will reward any random die from the game. You won't receive
+    two of the same dice as rewards in this way, all rewards are unique.
+    In Tournament Progression mode, Grandpa's Shop can still progress this way
+    although it is quite slow. Approximately 3-6 Tournament wins per shop level.
+
+    Shop Progress will divide the number of filler checks between
+    Shop Levels and Gold items. This will halt normal shop progression
+    if you have chosen Tournament mode instead of Free Duel.
     """
-    display_name = "Money and Shop Progress in Pool"
+    display_name = "Bonus Item Mode"
+    option_random_dice = 0
+    option_shop_progress = 1
+    default = 0
+
+class GoldRewardMinimum(Range):
+    """
+    This option only matters when your Bonus Item Mode option is Shop Progress.
+    
+    The minimum amount of gold you will receive from Gold filler checks.
+    """
+    display_name = "Gold Reward Minimum"
+    range_start = 0
+    range_end = 65534
+    default = 1000
+
+class GoldRewardMaximum(Range):
+    """
+    This option only matters when your Bonus Item Mode option is Shop Progress.
+    
+    The maximum amount of gold you will receive from Gold filler checks.
+    The player can't hold more than 65,535 gold at a time. Any gold received
+    that would overflow is capped at 65,535.
+    The most expensive shop item costs 50,000 gold.
+    """
+    display_name = "Gold Reward Maximum"
+    range_start = 1
+    range_end = 65535
+    default = 10000
 
 @dataclass
 class YGODDMOptions(PerGameCommonOptions):
+    progression: Progression
     duelist_rematches: DuelistRematches
     #starting_duelists: StartingDuelists
     randomize_starting_dice: RandomizeStartingDice
-    shop_progress_in_pool: ShopProgressInPool
+    bonus_item_mode: BonusItemMode
+    gold_reward_minimum: GoldRewardMinimum
+    gold_reward_maximum: GoldRewardMaximum
+
+    
 
     def serialize(self) -> typing.Dict[str, int]:
         return {field.name: getattr(self, field.name).value for field in dataclasses.fields(self)}

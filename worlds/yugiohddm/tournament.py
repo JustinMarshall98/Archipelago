@@ -15,7 +15,7 @@ class Tournament:
 
     def __str__(self) -> str:
         return (
-            f"{self.name} "
+            f"{self.name}"
         )
 
 all_tournaments: typing.Tuple[Tournament, ...] = (
@@ -39,5 +39,5 @@ all_tournaments: typing.Tuple[Tournament, ...] = (
     Tournament(17, "The Last Judgment", Constants.DIVISION_3_COMPLETION_OFFSET, 1 << 2)
 )
 
-id_to_progress = {tournament.id for tournament in all_tournaments}
-value_to_progress = {tournament.value for tournament in all_tournaments}
+id_to_tournament = {tournament.id for tournament in all_tournaments}
+name_to_tournament = {tournament.name: tournament for tournament in all_tournaments}

@@ -9,11 +9,12 @@ from worlds.generic.Rules import set_rule
 
 from .client import YGODDMClient
 from .utils import Constants
-from .items import YGODDMItem, item_name_to_item_id, create_item as fabricate_item, create_victory_event
-from .locations import YGODDMLocation, DuelistLocation, DuelistFirstRematchLocation, location_name_to_id as location_map
+from .items import YGODDMItem, item_name_to_item_id, create_item as fabricate_item, create_victory_event, create_victory_event_tournament
+from .locations import YGODDMLocation, DuelistLocation, DuelistFirstRematchLocation, location_name_to_id as location_map, TournamentLocation
 from .dice import Dice, all_dice
-from .options import YGODDMOptions, DuelistRematches
+from .options import YGODDMOptions, DuelistRematches, Progression
 from .duelists import Duelist, all_duelists, map_duelists_to_ids
+from .tournament import Tournament, all_tournaments, name_to_tournament
 from .version import __version__
 
 class YGODDMWeb(WebWorld):
@@ -54,67 +55,132 @@ class YGODDMWorld(World):
 
     def generate_early(self) -> None:
         self.duelist_unlock_order = all_duelists
+        self.tournament_locations = all_tournaments
 
     def create_item(self, name: str) -> YGODDMItem:
         return fabricate_item(name, self.player)
 
     def create_regions(self) -> None:
         menu_region = Region("Menu", self.player, self.multiworld)
-        # All duelists are accessible from Free Duel, so it is the only region
-        free_duel_region = Region("Free Duel", self.player, self.multiworld)
 
-        # Add duelist locations
-        # Hold a reference to these to set locked items and victory event
+        if (self.options.progression.value == Progression.option_free_duel):
+            # All duelists are accessible from Free Duel, so it is the only region
+            free_duel_region = Region("Free Duel", self.player, self.multiworld)
 
-        for duelist in self.duelist_unlock_order:
-            if duelist is not Duelist.YAMI_YUGI:
-                duelist_location: DuelistLocation = DuelistLocation(free_duel_region, self.player, duelist)
-                set_rule(duelist_location, (lambda state, d=duelist_location:
-                                            d.duelist in self.get_available_duelists(state)))
-                free_duel_region.locations.append(duelist_location)
+            # Add duelist locations
+            # Hold a reference to these to set locked items and victory event
 
-        # If enabled, add Duelist rematch 1 locations
-        if (self.options.duelist_rematches.value == DuelistRematches.option_one_rematch):
             for duelist in self.duelist_unlock_order:
                 if duelist is not Duelist.YAMI_YUGI:
-                    duelist_rematch_location: DuelistFirstRematchLocation = DuelistFirstRematchLocation(free_duel_region, self.player, duelist)
-                    set_rule(duelist_rematch_location, (lambda state, d=duelist_rematch_location:
+                    duelist_location: DuelistLocation = DuelistLocation(free_duel_region, self.player, duelist)
+                    set_rule(duelist_location, (lambda state, d=duelist_location:
                                                 d.duelist in self.get_available_duelists(state)))
-                    free_duel_region.locations.append(duelist_rematch_location)
+                    free_duel_region.locations.append(duelist_location)
 
-        # if enabled, add money and shop progression locations
-        #if (self.options.shop_progress_in_pool):
+            # If enabled, add Duelist rematch 1 locations
+            if (self.options.duelist_rematches.value == DuelistRematches.option_one_rematch):
+                for duelist in self.duelist_unlock_order:
+                    if duelist is not Duelist.YAMI_YUGI:
+                        duelist_rematch_location: DuelistFirstRematchLocation = DuelistFirstRematchLocation(free_duel_region, self.player, duelist)
+                        set_rule(duelist_rematch_location, (lambda state, d=duelist_rematch_location:
+                                                    d.duelist in self.get_available_duelists(state)))
+                        free_duel_region.locations.append(duelist_rematch_location)
+
+            # if enabled, add money and shop progression locations
+            #if (self.options.shop_progress_in_pool):
+                
             
-        
-        self.multiworld.completion_condition[self.player] = lambda state: state.has(
-            Constants.VICTORY_ITEM_NAME, self.player
-        )
+            self.multiworld.completion_condition[self.player] = lambda state: state.has(
+                Constants.VICTORY_ITEM_NAME, self.player
+            )
 
-        itempool: typing.List[YGODDMItem] = []
-        for duelist in self.duelist_unlock_order:
-            if duelist is not Duelist.YUGI_MOTO and duelist is not Duelist.YAMI_YUGI:
-                itempool.append(self.create_item(duelist.name))
+            itempool: typing.List[YGODDMItem] = []
+            for duelist in self.duelist_unlock_order:
+                if duelist is not Duelist.YUGI_MOTO and duelist is not Duelist.YAMI_YUGI:
+                    itempool.append(self.create_item(duelist.name))
 
-        # Add random Dice items from the pool to fill in empty locations
-        filler_slots: int = len(free_duel_region.locations) - len(itempool)
-        reward_dice: typing.List[Dice] = [dice for dice in all_dice]
-        while len(reward_dice) < filler_slots:
-            reward_dice += reward_dice
-        self.random.shuffle(reward_dice)
+            # Add random Dice items from the pool to fill in empty locations
+            filler_slots: int = len(free_duel_region.locations) - len(itempool)
+            reward_dice: typing.List[Dice] = [dice for dice in all_dice]
+            while len(reward_dice) < filler_slots:
+                reward_dice += reward_dice
+            self.random.shuffle(reward_dice)
 
-        itempool += [self.create_item(dice.name) for dice in reward_dice][:filler_slots]
+            itempool += [self.create_item(dice.name) for dice in reward_dice][:filler_slots]
 
-        # Set Yami Yugi's item to game victory
-        yami_yugi_location: DuelistLocation = DuelistLocation(free_duel_region, self.player, Duelist.YAMI_YUGI)
-        yami_yugi_location.place_locked_item(create_victory_event(self.player))
-        free_duel_region.locations.append(yami_yugi_location)
-        
+            # Set Yami Yugi's item to game victory
+            yami_yugi_location: DuelistLocation = DuelistLocation(free_duel_region, self.player, Duelist.YAMI_YUGI)
+            yami_yugi_location.place_locked_item(create_victory_event(self.player))
+            free_duel_region.locations.append(yami_yugi_location)
+            
 
-        self.multiworld.itempool.extend(itempool)
+            self.multiworld.itempool.extend(itempool)
 
-        menu_region.connect(free_duel_region)
-        self.multiworld.regions.append(free_duel_region)
-        self.multiworld.regions.append(menu_region)
+            menu_region.connect(free_duel_region)
+            self.multiworld.regions.append(free_duel_region)
+            self.multiworld.regions.append(menu_region)
+        else:
+            # else Progression is Tournament mode
+            division_1_region = Region("Division 1", self.player, self.multiworld)
+            division_2_region = Region("Division 2", self.player, self.multiworld)
+            division_3_region = Region("Division 3", self.player, self.multiworld)
+
+            for tournament in all_tournaments:
+                if tournament.name != Constants.VICTORY_ITEM_TOURNAMENT_NAME:
+                    if tournament.offset == Constants.DIVISION_1_COMPLETION_OFFSET:
+                        tournament_location: TournamentLocation = TournamentLocation(division_1_region, self.player, tournament)
+                        division_1_region.locations.append(tournament_location)
+                    elif tournament.offset == Constants.DIVISION_2_COMPLETION_OFFSET:
+                        tournament_location: TournamentLocation = TournamentLocation(division_2_region, self.player, tournament)
+                        set_rule(tournament_location, lambda state: state.has(Constants.DIVISION_2_ITEM_NAME, self.player))
+                        division_2_region.locations.append(tournament_location)
+                    else:
+                        tournament_location: TournamentLocation = TournamentLocation(division_3_region, self.player, tournament)
+                        set_rule(tournament_location, lambda state: state.has(Constants.DIVISION_3_ITEM_NAME, self.player) and state.has(Constants.DIVISION_2_ITEM_NAME, self.player))
+                        division_3_region.locations.append(tournament_location)
+            
+            self.multiworld.completion_condition[self.player] = lambda state: state.has(
+                Constants.VICTORY_ITEM_TOURNAMENT_NAME, self.player
+            )
+
+            itempool: typing.List[YGODDMItem] = []
+
+            # Add Division 2 and 3 unlock items to pool
+            itempool.append(self.create_item(Constants.DIVISION_2_ITEM_NAME))
+            itempool.append(self.create_item(Constants.DIVISION_3_ITEM_NAME))
+
+            # Add random Dice items from the pool to fill in empty locations
+            filler_slots: int = len(division_1_region.locations) + len(division_2_region.locations) + len(division_3_region.locations) - len(itempool)
+            reward_dice: typing.List[Dice] = [dice for dice in all_dice]
+            while len(reward_dice) < filler_slots:
+                reward_dice += reward_dice
+            self.random.shuffle(reward_dice)
+            itempool += [self.create_item(dice.name) for dice in reward_dice][:filler_slots]
+
+            # Set The Last Judgment's item to game victory
+            the_last_judgment_location: TournamentLocation = TournamentLocation(division_3_region, self.player, name_to_tournament["The Last Judgment"])
+            the_last_judgment_location.place_locked_item(create_victory_event_tournament(self.player))
+            division_3_region.locations.append(the_last_judgment_location)
+
+            self.multiworld.itempool.extend(itempool)
+
+            menu_region.connect(division_1_region)
+            division_1_region.connect(
+                division_2_region,
+                None,
+                lambda state: state.has(Constants.DIVISION_2_ITEM_NAME, self.player)
+            )
+            division_2_region.connect(
+                division_3_region,
+                None,
+                lambda state: state.has(Constants.DIVISION_3_ITEM_NAME, self.player) and state.has(Constants.DIVISION_2_ITEM_NAME, self.player)
+                )
+            self.multiworld.regions.append(division_1_region)
+            self.multiworld.regions.append(division_2_region)
+            self.multiworld.regions.append(division_3_region)
+            self.multiworld.regions.append(menu_region)
+
+
 
     def fill_slot_data(self) -> typing.Dict[str, typing.Any]:
         return {

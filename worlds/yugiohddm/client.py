@@ -7,11 +7,12 @@ import random
 import worlds._bizhawk as bizhawk
 from worlds._bizhawk.client import BizHawkClient
 from .utils import Constants
-from .items import is_dice_item, convert_item_id_to_dice_id
-from .locations import get_location_id_for_duelist, duelist_from_location_id, is_duelist_location_id, get_location_id_for_duelist_rematch, duelist_rematch_from_location_id, is_duelist_rematch_location_id
+from .items import is_dice_item, convert_item_id_to_dice_id, item_id_to_item_name
+from .locations import get_location_id_for_duelist, duelist_from_location_id, is_duelist_location_id, get_location_id_for_duelist_rematch, duelist_rematch_from_location_id, is_duelist_rematch_location_id, get_location_id_for_tournament
 from .duelists import Duelist, all_duelists, name_to_duelist
 from .dice import id_to_dice
-from .options import YGODDMOptions, RandomizeStartingDice
+from .options import YGODDMOptions, RandomizeStartingDice, Progression
+from .tournament import Tournament, all_tournaments
 from .version import __version__
 
 if TYPE_CHECKING:
@@ -23,6 +24,12 @@ COMBINED_WRAM: typing.Final[str] = "Combined WRAM"
 def get_wins_from_bytes(b: bytes) -> int:
     return int.from_bytes(b, "little")
 
+def get_tournament_wins_from_bytes(b: typing.List[bytes]) -> typing.Dict[Tournament, bool]:
+    wins_dict: typing.Dict[Tournament, bool] = {}
+    for t in all_tournaments:
+        wins_dict[t] = int.from_bytes(b[t.offset - Constants.DIVISION_1_COMPLETION_OFFSET], "little") & t.bitflag
+    return wins_dict
+
 class YGODDMClient(BizHawkClient):
     game: str = Constants.GAME_NAME
     system: str = "GBA"
@@ -30,7 +37,6 @@ class YGODDMClient(BizHawkClient):
     local_checked_locations: typing.Set[int]
     checked_version_string: bool
     #random: Random
-    #options: YGODDMOptions
 
     def __init__(self) -> None:
         super().__init__()
@@ -118,7 +124,7 @@ class YGODDMClient(BizHawkClient):
 
 
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
-        if not ctx.finished_game and any(item.item == Constants.VICTORY_ITEM_ID for item in ctx.items_received):
+        if not ctx.finished_game and any((item.item == Constants.VICTORY_ITEM_ID or item.item == Constants.VICTORY_ITEM_TOURNAMENT_ID) for item in ctx.items_received):
             await ctx.send_msgs([{
                 "cmd": "StatusUpdate",
                 "status": ClientStatus.CLIENT_GOAL
@@ -183,8 +189,45 @@ class YGODDMClient(BizHawkClient):
                 unlocked_duelist_bitflags,
                 COMBINED_WRAM
             )])
+            # Progression is Tournament
 
-            
+            # Read tournament wins
+
+            read_list: typing.List[typing.Tuple[int, int, str]] = [
+                (Constants.DIVISION_1_COMPLETION_OFFSET, 1, COMBINED_WRAM),
+                (Constants.DIVISION_2_COMPLETION_OFFSET, 1, COMBINED_WRAM),
+                (Constants.DIVISION_3_COMPLETION_OFFSET, 1, COMBINED_WRAM)
+            ]
+            tournament_wins_bytes: typing.List[bytes] = await bizhawk.read(ctx.bizhawk_ctx, read_list)
+            tournaments_to_wins: typing.Dict[Tournament, bool] = get_tournament_wins_from_bytes(tournament_wins_bytes)
+
+            tournament_local_check_locations = set([
+                get_location_id_for_tournament(key) for key, value in tournaments_to_wins.items() if value
+            ])
+
+            new_local_check_locations = new_local_check_locations.union(tournament_local_check_locations)
+
+            # Unlock/Lock Tournament Divisions
+
+            division_2_lock: typing.List[int] = [int.from_bytes(tournament_wins_bytes[0], "little") & 0xFE]
+            division_3_lock: typing.List[int] = [int.from_bytes(tournament_wins_bytes[1], "little") & 0xFE]
+
+            for item in ctx.items_received:
+                if item_id_to_item_name[item.item] == Constants.DIVISION_2_ITEM_NAME:
+                    division_2_lock[0] = division_2_lock[0] | 0x01
+                elif item_id_to_item_name[item.item] == Constants.DIVISION_3_ITEM_NAME:
+                    division_3_lock[0] = division_3_lock[0] | 0x01
+
+            await bizhawk.write(ctx.bizhawk_ctx, [(
+                Constants.DIVISION_1_COMPLETION_OFFSET,
+                division_2_lock,
+                COMBINED_WRAM
+            ),
+            (
+                Constants.DIVISION_2_COMPLETION_OFFSET,
+                division_3_lock,
+                COMBINED_WRAM
+            )])
 
             # Give out received Dice
             last_dice_received_count: int = int.from_bytes(
@@ -217,7 +260,6 @@ class YGODDMClient(BizHawkClient):
                     )])
 
             # Grab rematch checks
-
             more_local_check_locations: typing.Set[int] = set([
                 get_location_id_for_duelist_rematch(key) for key, value in duelists_to_wins.items() if value > 1
             ])
@@ -225,7 +267,7 @@ class YGODDMClient(BizHawkClient):
             # Local checked checks handling
 
             new_local_check_locations = new_local_check_locations.union(more_local_check_locations)
-            
+                
             if new_local_check_locations != self.local_checked_locations:
                 self.local_checked_locations = new_local_check_locations
                 if new_local_check_locations is not None:
