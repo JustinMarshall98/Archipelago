@@ -10,7 +10,7 @@ from worlds.generic.Rules import set_rule
 from .client import YGODDMClient
 from .utils import Constants
 from .items import YGODDMItem, item_name_to_item_id, create_item as fabricate_item, create_victory_event, create_victory_event_tournament
-from .locations import YGODDMLocation, DuelistLocation, DuelistFirstRematchLocation, location_name_to_id as location_map, TournamentLocation
+from .locations import YGODDMLocation, DuelistLocation, DuelistFirstRematchLocation, location_name_to_id as location_map, TournamentLocation, get_location_name_for_duelist
 from .dice import Dice, all_dice
 from .options import YGODDMOptions, DuelistRematches, Progression
 from .duelists import Duelist, all_duelists, map_duelists_to_ids
@@ -109,7 +109,14 @@ class YGODDMWorld(World):
             itempool += [self.create_item(dice.name) for dice in reward_dice][:filler_slots]
 
             # Set Yami Yugi's item to game victory
+            # Set rule so it knows that Yami Yugi can't appear until you have all other duelist items
             yami_yugi_location: DuelistLocation = DuelistLocation(free_duel_region, self.player, Duelist.YAMI_YUGI)
+            duelist_names: typing.list[str] = []
+            for d in self.duelist_unlock_order:
+                duelist_names.append(d.name)
+            duelist_names.remove("YAMI_YUGI")
+            duelist_names.remove("YUGI_MOTO")
+            set_rule(yami_yugi_location, lambda state: state.has_all(duelist_names, self.player))
             yami_yugi_location.place_locked_item(create_victory_event(self.player))
             free_duel_region.locations.append(yami_yugi_location)
             

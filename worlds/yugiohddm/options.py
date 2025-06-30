@@ -32,16 +32,12 @@ class DuelistRematches(Choice):
 
     "One Rematch" means each duelist you unlock can be beaten twice to yield two different checks.
 
-    "Two Rematches" means each duelist you unlock can be beaten thrice to yield three different checks.
-    Note, the Two Rematches option is currently under development and is not present in the yaml
-
     The more rematches you add, the more game time you can expect to have.
     Extra check locations are randomized dice rewards that get added to your dice pool.
     """
     display_name = "Duelist Rematches"
     option_no_rematches = 0
     option_one_rematch = 1
-    #option_two_rematches = 2
     default = 0
 
 #class StartingDuelists(Range):
