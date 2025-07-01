@@ -10,10 +10,10 @@ from worlds.generic.Rules import set_rule
 from .client import YGODDMClient
 from .utils import Constants
 from .items import YGODDMItem, item_name_to_item_id, create_item as fabricate_item, create_victory_event, create_victory_event_tournament
-from .locations import YGODDMLocation, DuelistLocation, DuelistFirstRematchLocation, location_name_to_id as location_map, TournamentLocation, get_location_name_for_duelist
+from .locations import YGODDMLocation, DuelistLocation, DuelistFirstRematchLocation, location_name_to_id as location_map, TournamentLocation
 from .dice import Dice, all_dice
 from .options import YGODDMOptions, DuelistRematches, Progression
-from .duelists import Duelist, all_duelists, map_duelists_to_ids
+from .duelists import Duelist, all_duelists, map_duelists_to_ids, all_duelists_test
 from .tournament import Tournament, all_tournaments, name_to_tournament
 from .version import __version__
 
@@ -41,14 +41,16 @@ class YGODDMWorld(World):
     web = YGODDMWeb()
 
     duelist_unlock_order: typing.List[Duelist]
+    starting_unlocked_duelists: typing.List[Duelist]
+    starting_unlocked_duelists_str: typing.List[str]
 
     location_name_to_id = location_map
     item_name_to_id = item_name_to_item_id
     
     def get_available_duelists(self, state: CollectionState) -> typing.List[Duelist]:
-        available_duelists: typing.List[Duelist] = [Duelist.YUGI_MOTO]
+        available_duelists: typing.List[Duelist] = [duelist for duelist in self.starting_unlocked_duelists]
         for d in self.duelist_unlock_order:
-            if (d is not Duelist.YUGI_MOTO):
+            if d not in self.starting_unlocked_duelists:
                 if state.has(d.name, self.player):
                     available_duelists.append(d)
         return available_duelists
@@ -56,6 +58,15 @@ class YGODDMWorld(World):
     def generate_early(self) -> None:
         self.duelist_unlock_order = all_duelists
         self.tournament_locations = all_tournaments
+        self.starting_unlocked_duelists = [Duelist.YUGI_MOTO]
+        # Figure out which other duelists will start unlocked
+        start_duelists: typing.List[Duelist] = [duelist for duelist in all_duelists]
+        start_duelists.remove(Duelist.YUGI_MOTO)
+        start_duelists.remove(Duelist.YAMI_YUGI)
+        self.random.shuffle(start_duelists)
+        self.starting_unlocked_duelists += start_duelists[0:self.options.starting_duelists.value - 1]
+        self.starting_unlocked_duelists_str = [duelist.name for duelist in self.starting_unlocked_duelists]
+
 
     def create_item(self, name: str) -> YGODDMItem:
         return fabricate_item(name, self.player)
@@ -96,7 +107,7 @@ class YGODDMWorld(World):
 
             itempool: typing.List[YGODDMItem] = []
             for duelist in self.duelist_unlock_order:
-                if duelist is not Duelist.YUGI_MOTO and duelist is not Duelist.YAMI_YUGI:
+                if duelist not in self.starting_unlocked_duelists and duelist is not Duelist.YAMI_YUGI:
                     itempool.append(self.create_item(duelist.name))
 
             # Add random Dice items from the pool to fill in empty locations
@@ -111,11 +122,11 @@ class YGODDMWorld(World):
             # Set Yami Yugi's item to game victory
             # Set rule so it knows that Yami Yugi can't appear until you have all other duelist items
             yami_yugi_location: DuelistLocation = DuelistLocation(free_duel_region, self.player, Duelist.YAMI_YUGI)
-            duelist_names: typing.list[str] = []
+            duelist_names: typing.List[str] = []
             for d in self.duelist_unlock_order:
-                duelist_names.append(d.name)
-            duelist_names.remove("YAMI_YUGI")
-            duelist_names.remove("YUGI_MOTO")
+                if d not in self.starting_unlocked_duelists and d is not Duelist.YAMI_YUGI:
+                    duelist_names.append(d.name)
+
             set_rule(yami_yugi_location, lambda state: state.has_all(duelist_names, self.player))
             yami_yugi_location.place_locked_item(create_victory_event(self.player))
             free_duel_region.locations.append(yami_yugi_location)
@@ -193,5 +204,6 @@ class YGODDMWorld(World):
         return {
             Constants.GENERATED_WITH_KEY: __version__,
             Constants.DUELIST_UNLOCK_ORDER_KEY: map_duelists_to_ids(self.duelist_unlock_order),
-            Constants.GAME_OPTIONS_KEY: self.options.serialize()
+            Constants.GAME_OPTIONS_KEY: self.options.serialize(),
+            Constants.DUELIST_START_UNLOCKED_KEY: self.starting_unlocked_duelists_str
         }

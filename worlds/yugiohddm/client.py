@@ -177,8 +177,14 @@ class YGODDMClient(BizHawkClient):
 
                 # Unlock initially unlocked duelists
 
-                # Only handles Yugi Moto for now
-                unlocked_duelist_bitflags[0] |= Duelist.YUGI_MOTO.bitflag
+                for duelist_name in ctx.slot_data[Constants.DUELIST_START_UNLOCKED_KEY]:
+                    duelist_count = duelist_count + 1
+                    duelist_bitflag = name_to_duelist[duelist_name].bitflag
+                    duelist_bitflag_index = 0
+                    while duelist_bitflag >= 256:
+                        duelist_bitflag = duelist_bitflag >> 8
+                        duelist_bitflag_index = duelist_bitflag_index + 1
+                    unlocked_duelist_bitflags[duelist_bitflag_index] |= duelist_bitflag
 
 
                 # Unlock duelists based on who has been received
@@ -193,9 +199,9 @@ class YGODDMClient(BizHawkClient):
                             duelist_bitflag_index = duelist_bitflag_index + 1
                         unlocked_duelist_bitflags[duelist_bitflag_index] |= duelist_bitflag
                 
-                # Check for Yami Yugi unlock based on number of duelists defeated for the first time
-                # (Looking for 91 duelists being defeated at least once before yami unlock)
-                if len(new_local_check_locations) >= 91:
+                # Check for Yami Yugi unlock based on number of duelists unlocked
+                # If the 91 other duelists are all present, so is Yami Yugi
+                if duelist_count >= 91:
                     unlocked_duelist_bitflags[0] |= Duelist.YAMI_YUGI.bitflag
 
                 await bizhawk.write(ctx.bizhawk_ctx, [(

@@ -31,4 +31,5 @@ class Constants:
 
     GENERATED_WITH_KEY: str = "k"
     DUELIST_UNLOCK_ORDER_KEY: str = "d"
+    DUELIST_START_UNLOCKED_KEY: str = "s"
     GAME_OPTIONS_KEY: str = "g"

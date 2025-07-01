@@ -40,18 +40,20 @@ class DuelistRematches(Choice):
     option_one_rematch = 1
     default = 0
 
-#class StartingDuelists(Range):
-#    """
-#    This option only matters when your Progression mode is Free Duel.
-#     
-#    The number of Duelists to start with unlocked.
-#    There are 92 duelists in total, Yami Yugi is reserved for the game's goal and there must be
-#    at least as many duelists to unlock as you start with, so the max you can start with is 45.
-#    """
-#    display_name = "Starting Duelists"
-#    range_start = 1
-#    range_end = 45
-#    default = 1
+class StartingDuelists(Range):
+    """
+    This option only matters when your Progression mode is Free Duel.
+     
+    The number of Duelists to start with unlocked.
+    There are 92 duelists in total, Yami Yugi is reserved for the game's goal so the limit is 91.
+    Setting the number to 91 would automatically put you in go-mode.
+    Each extra duelist you start with unlocked also represents one more filler item for you
+    instead of their normal progression item.
+    """
+    display_name = "Starting Duelists"
+    range_start = 1
+    range_end = 91
+    default = 10
 
 class RandomizeStartingDice(Toggle):
     """
@@ -113,7 +115,7 @@ class GoldRewardMaximum(Range):
 class YGODDMOptions(PerGameCommonOptions):
     progression: Progression
     duelist_rematches: DuelistRematches
-    #starting_duelists: StartingDuelists
+    starting_duelists: StartingDuelists
     randomize_starting_dice: RandomizeStartingDice
     bonus_item_mode: BonusItemMode
     gold_reward_minimum: GoldRewardMinimum
