@@ -9,8 +9,7 @@ class Progression(Choice):
     Free Duel mode means all progression will be made through the Free Duel menu
     culminating in a fight against Yami Yugi.
     Your game will be longer per duelist you set to play against.
-    Grandpa's Shop will never advance in this mode unless you use the
-    Shop Progress Bonus Item Mode option.
+    Grandpa's Shop will never advance in this mode.
 
     Tournament mode means all progression will be made in Tournaments with the
     goal being completing The Last Judgement in the Dark Tournament Division.
