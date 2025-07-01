@@ -18,8 +18,8 @@ for dice in all_dice:
 item_id_to_item_name[Constants.VICTORY_ITEM_ID] = Constants.VICTORY_ITEM_NAME
 
 # Money
-money_values: typing.Tuple[int, int, int, int, int] = (200, 1000, 2500, 10000, 25000)
-money_distribution_weight: typing.Tuple[float, float, float, float, float] = (0.10, 0.25, 0.50, 0.10, 0.05)
+#money_values: typing.Tuple[int, int, int, int, int] = (200, 1000, 2500, 10000, 25000)
+#money_distribution_weight: typing.Tuple[float, float, float, float, float] = (0.10, 0.25, 0.50, 0.10, 0.05)
 
 # Tournament Division 2 and 3 unlock items, as Division 1 and 2 offsets
 item_id_to_item_name[Constants.DIVISION_1_COMPLETION_OFFSET_ID] = Constants.DIVISION_2_ITEM_NAME
